@@ -5,7 +5,7 @@ from django.core.cache import cache
 
 from manifest_loader.templatetags.manifest import strip_quotes, \
     find_manifest_path, WebpackManifestNotFound, get_manifest, APP_SETTINGS, \
-    AssetNotFoundInWebpackManifest
+    AssetNotFoundInWebpackManifest, is_url
 
 
 NEW_STATICFILES_DIRS = [
@@ -20,6 +20,18 @@ def render_template(string, context=None):
     context = context or {}
     context = Context(context)
     return Template(string).render(context)
+
+
+class IsUrlTests(SimpleTestCase):
+    def test_is_url(self):
+        self.assertTrue(is_url('http://localhost:8080'))
+        self.assertTrue(is_url('https://localhost:8080'))
+        self.assertTrue(is_url('http://localhost'))
+        self.assertTrue(is_url('http://124.22.2.119:8080'))
+        self.assertTrue(is_url('https://example.com/static/main.js'))
+        self.assertFalse(is_url('main.hkl328o.js'))
+        self.assertFalse(is_url('http:hello.js'))
+        self.assertFalse(is_url('https.js'))
 
 
 class StripQuotesTests(SimpleTestCase):
@@ -187,6 +199,18 @@ class ManifestTagTests(SimpleTestCase):
             '/static/foo.js'
         )
         APP_SETTINGS.update({'ignore_missing_assets': False})
+
+    # def test_url_in_manifest(self):
+    #     APP_SETTINGS.update({'manifest_file': 'url_manifest.json'})
+    #     rendered = render_template(
+    #         '{% load manifest %}'
+    #         '{% manifest "main.js" %}'
+    #     )
+    #     self.assertEqual(
+    #         rendered,
+    #         'http://localhost:8080/main.js'
+    #     )
+    #     APP_SETTINGS.update({'manifest_file': 'manifest.json'})
 
 
 class ManifestMatchTagTests(SimpleTestCase):

@@ -6,6 +6,8 @@ from django import template
 from django.templatetags.static import do_static, StaticNode
 from django.conf import settings
 from django.core.cache import cache
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 
 register = template.Library()
 
@@ -15,6 +17,7 @@ APP_SETTINGS = {
     'cache': False,
     'ignore_missing_assets': False,
     'ignore_missing_match_tag': False,
+    'map_urls': True,
 }
 
 if hasattr(settings, 'MANIFEST_LOADER'):
@@ -35,9 +38,12 @@ def do_manifest(parser, token):
 
     hashed_filename = manifest.get(filename)
     if hashed_filename:
-        token.contents = "webpack '{}'".format(hashed_filename)
+        token.contents = "manifest '{}'".format(hashed_filename)
     elif not APP_SETTINGS['ignore_missing_assets']:
         raise AssetNotFoundInWebpackManifest(filename)
+
+    if not APP_SETTINGS['map_urls'] and is_url(hashed_filename):
+        return UrlNode(parser, token)
 
     return do_static(parser, token)
 
@@ -45,6 +51,16 @@ def do_manifest(parser, token):
 @register.tag('manifest_match')
 def do_manifest_match(parser, token):
     return ManifestNode(parser, token)
+
+
+class UrlNode(template.Node):
+    def __init__(self, parser, token):
+        self.parser = parser
+        self.token = token
+
+
+    def render(self, context):
+        pass
 
 
 class ManifestNode(template.Node):
@@ -141,6 +157,15 @@ def strip_quotes(tag_name, content):
             "%r tag's argument should be in quotes" % tag_name
         )
     return content[1:-1]
+
+
+def is_url(potential_url):
+    validate = URLValidator()
+    try:
+        validate(potential_url)
+        return True
+    except ValidationError:
+        return False
 
 
 class WebpackManifestNotFound(Exception):
